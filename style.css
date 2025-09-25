@@ -276,9 +276,10 @@ h1 {
 
 .task-header {
   display: flex;
-  justify-content: space-between;
+  /* justify-content: space-between; */
   align-items: center;
   padding: 1rem 1.25rem;
+  gap: 1rem; /* Add gap for spacing */
   cursor: pointer;
 }
 
@@ -287,6 +288,7 @@ h1 {
   flex-direction: column;
   gap: 0.3rem;
   text-align: left;
+  flex-grow: 1; /* Allow summary to take up available space */
 }
 
 .task-name {
@@ -348,6 +350,85 @@ h1 {
 .task-item.expanded .expand-btn {
   transform: rotate(90deg);
   color: #667eea;
+}
+
+/* Task Actions (Complete, Edit, Delete) */
+.task-actions {
+  margin-top: 1rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  /* border-top: 1px solid #f0f0f0; */ /* Removed to keep details cleaner */
+  padding-top: 0;
+}
+
+.complete-group {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.complete-group label {
+  font-size: 0.9rem;
+  color: #555;
+  cursor: pointer;
+}
+
+/* Visually hide a label but keep it for accessibility */
+.hidden-label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}
+
+.complete-checkbox {
+  width: 20px; /* Slightly larger for easier clicking */
+  height: 20px;
+  cursor: pointer;
+  accent-color: #667eea; /* Style the check color */
+}
+
+.action-buttons {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.task-action-btn {
+  background: none;
+  border: none;
+  font-size: 1.2rem;
+  cursor: pointer;
+  padding: 0.4rem;
+  border-radius: 6px;
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+.task-action-btn:hover {
+  background-color: #f0f0f0;
+}
+
+.edit-btn:hover {
+  color: #3b82f6; /* blue */
+}
+
+.delete-btn:hover {
+  color: #ef4444; /* red */
+}
+
+/* Completed Task Styling */
+.task-item.completed .task-name {
+  text-decoration: line-through;
+  color: #999;
+}
+
+.task-item.completed .task-header {
+  opacity: 0.7;
 }
 
 /* Responsive adjustments */

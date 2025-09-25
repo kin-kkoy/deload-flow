@@ -2,7 +2,10 @@
 
 
 /*  == TO-DO SECTION ==
- - TODO:  Implementation of LocalStorage (we'll use this for now)
+ - TODO:  Mark complete, edit inline, delete.
+    - TODO:  Mark complete
+        - Remove from array and then save and then increment finishedTasks
+ - TODO:  Completed tasks are hidden from retrieve mode by default (toggle to show completed, optional maybe).
 */
 
 
@@ -21,19 +24,18 @@ const streamlineMode = document.getElementById("streamlineMode");
 let tasks = []; // where tasks will be stored for now since I will add backend later
 let urgencyFilter = `all`; // by default show everything
 let difficultyFilter = `all`; // by default show everything
-let streamline = false; // focus mode or nah
+let streamline = true; // focus mode or nah, by default yes
+let finishedTasks = 0; // could be stored in DB later. Somewhat of a decoration, just to feel good about the amount of tasks completed for the whole usage.
 const savedTasks = localStorage.getItem('tasks');
 if(savedTasks) tasks = JSON.parse(savedTasks);
 
 
 // Initialization's special area
-renderTasks(); // can becalled since normal functions are hoisted
+renderTasks(); // can be called since normal functions are hoisted
 
 // Helper functions
 function renderTasks() {
-    console.log(`tasks: ${tasks}`);
-    
-    let tasksToShow = tasks.filter(task => {
+let tasksToShow = tasks.filter(task => {
         const sameUrgency = (urgencyFilter === `all` || task.urgency === urgencyFilter);
         const sameDifficulty = (difficultyFilter === `all` || task.difficulty === difficultyFilter);
         return sameUrgency && sameDifficulty;
@@ -58,8 +60,12 @@ function renderTasks() {
             : 'No deadline set';
 
         return `
-            <div class="task-item">
+            <div class="task-item ${task.status ? 'completed' : ''}" data-id="${task.id}">
                 <div class="task-header">
+                    <div class="complete-group">
+                        <input type="checkbox" class="complete-checkbox" id="complete-${task.id}" ${task.status ? 'checked' : ''}>
+                        <label for="complete-${task.id}" class="hidden-label">Finished</label>
+                    </div>
                     <div class="task-summary">
                         <span class="task-name">${task.name}</span>
                         <div class="task-categories">
@@ -71,7 +77,12 @@ function renderTasks() {
                 </div>
                 <div class="task-details">
                     <p>${deadlineString}</p>
-                    <!-- A description could be added here in the future -->
+                    <div class="task-actions">
+                        <div class="action-buttons">
+                            <button class="task-action-btn edit-btn" title="Edit Task">✏️</button>
+                            <button class="task-action-btn delete-btn" title="Delete Task">🗑️</button>
+                        </div>
+                    </div>
                 </div>
             </div>
         `;
@@ -89,11 +100,13 @@ taskForm.addEventListener("submit", (e) => {
 
     const elements = e.target.elements;
     const task = {
+        id: Date.now(), // Add a unique ID
         name: elements.taskName.value,
         urgency: elements.urgency.value,
         difficulty: elements.difficulty.value,
         deadlineDate: elements.deadlineDate.value,
         deadlineTime: elements.deadlineTime.value,
+        status: false, // completed or not
     }
 
     if(!task.name || !task.urgency || !task.difficulty){ // i think deadline isn't really that needed
@@ -108,28 +121,47 @@ taskForm.addEventListener("submit", (e) => {
     e.target.reset();
 });
 
-retrieveTaskBtn.addEventListener("click", () => {
-    renderTasks();
-});
+retrieveTaskBtn.addEventListener("click", () => renderTasks());
 
 // event listener to expand task once the arrow button is pressed
 taskDisplay.addEventListener('click', function(e) {
-    // Made AI do this since not that familiar with "expanding" elements yet
-    const expandBtn = e.target.closest('.expand-btn');
-    if (expandBtn) {
-        const taskItem = expandBtn.closest('.task-item');
-        taskItem.classList.toggle('expanded');
+    // Made AI do this since not that familiar with "expanding" elements yet and it's more of a design feature. I've tweaked it a bit though since this is the general handler for each task's event
+    const target = e.target;
+    const taskItem = target.closest('.task-item');
+    if(!taskItem) return;
+
+    const taskID = taskItem.dataset.id;
+    const task = tasks.find(task => task.id == taskID); // not strict == since taskID is a string
+
+    if (target.matches('.expand-btn')) taskItem.classList.toggle('expanded');
+    else if(target.matches('.complete-checkbox')){
+        console.log(`completing task: ${task.name} #${taskID}`);
+        task.status = !task.status;
+        saveTasks();
+        renderTasks();
+    }else if(target.matches('.edit-btn')){
+        // TODO:  edit functionality here
+        console.log(`editing task: ${taskItem.name} #${taskID}`);
+        
+    }else if(target.matches('.delete-btn')){
+        // TODO:  delete functionality here
+        console.log(`deleting task: ${taskItem.name} #${taskID}`);
+
     }
 });
 
 // filters
-urgencyFilterBtn.addEventListener('change', (e) => urgencyFilter = e.target.value);
-difficultyFilterBtn.addEventListener('change', (e) => difficultyFilter = e.target.value);
-
-streamlineMode.addEventListener('change', (e) => {
-
-    streamline = e.target.checked;
-    console.log(streamline);
-
+urgencyFilterBtn.addEventListener('change', (e) => {
+    urgencyFilter = e.target.value;
     renderTasks();
 });
+difficultyFilterBtn.addEventListener('change', (e) => {
+    difficultyFilter = e.target.value
+    renderTasks();
+});
+
+streamlineMode.addEventListener('change', (e) => {
+    streamline = e.target.checked;
+    renderTasks();
+});
+
