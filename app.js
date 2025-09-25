@@ -22,7 +22,12 @@ let tasks = []; // where tasks will be stored for now since I will add backend l
 let urgencyFilter = `all`; // by default show everything
 let difficultyFilter = `all`; // by default show everything
 let streamline = false; // focus mode or nah
+const savedTasks = localStorage.getItem('tasks');
+if(savedTasks) tasks = JSON.parse(savedTasks);
 
+
+// Initialization's special area
+renderTasks(); // can becalled since normal functions are hoisted
 
 // Helper functions
 function renderTasks() {
@@ -75,6 +80,7 @@ function renderTasks() {
     taskDisplay.innerHTML = tasksHTML;
 }
 
+function saveTasks(){ localStorage.setItem('tasks', JSON.stringify(tasks)); }
 
 // Event listeners and the logic parts
 // task contents submission
@@ -97,7 +103,8 @@ taskForm.addEventListener("submit", (e) => {
     }
     
     console.log(task);
-    tasks.push(task)
+    tasks.push(task);
+    saveTasks(); // === check this later in the future, might be kinds inefficient 
     e.target.reset();
 });
 
