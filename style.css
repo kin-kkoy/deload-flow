@@ -10,8 +10,9 @@ body {
   background: linear-gradient(135deg, #74ebd5, #9face6);
   display: flex;
   justify-content: center;
-  align-items: center;
-  height: 100vh;
+  align-items: flex-start; /* Align to top for scrolling on mobile */
+  min-height: 100vh;
+  padding: 1rem 0; /* Add some vertical padding for mobile */
 }
 
 .app-container {
@@ -22,12 +23,13 @@ body {
   width: 100%;
   max-width: 850px; /* Increased width further */
   text-align: center;
-  transition: max-width 0.3s ease;
+  transition: max-width 0.3s ease, padding 0.3s ease;
 }
 
 h1 {
   color: #333;
   margin-bottom: 1.5rem;
+  transition: font-size 0.3s ease;
 }
 
 /* Input section */
@@ -578,7 +580,62 @@ h1 {
 /* Responsive adjustments */
 @media (max-width: 780px) {
   .task-actions-row {
-    justify-content: center;
+    flex-direction: column; /* Stack actions vertically */
+    align-items: stretch; /* Stretch items to full width */
+    gap: 1.25rem;
+  }
+  .control-group {
+    justify-content: space-between; /* Space out label and control */
+  }
+  .sort-controls {
+    gap: 0.5rem;
+  }
+}
+
+@media (max-width: 620px) {
+  .form-row {
+    flex-direction: column; /* Stack all form groups vertically */
+    gap: 1rem;
+  }
+  .deadline-field, .auto-urgency-group {
+    flex-basis: auto; /* Reset flex-basis */
+  }
+  .time-field .time-input {
+    max-width: none; /* Remove max-width */
+  }
+}
+
+/* More specific mobile styles for smaller phones */
+@media (max-width: 500px) {
+  .app-container {
+    padding: 1.5rem; /* Reduce padding on mobile */
+    border-radius: 0;
+    min-height: 100vh;
+    box-shadow: none;
+  }
+
+  body {
+    padding: 0; /* Remove body padding for edge-to-edge feel */
+  }
+
+  h1 {
+    font-size: 1.75rem; /* Reduce heading size */
+  }
+
+  .task-header {
+    padding: 0.75rem 1rem;
+  }
+
+  .task-name {
+    font-size: 1rem;
+  }
+
+  .task-details {
+    padding: 0 1rem;
+  }
+
+  .task-item.expanded .task-details {
+    padding: 0.75rem 1rem;
   }
 }
 

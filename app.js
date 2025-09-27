@@ -1,13 +1,6 @@
 'use strict'
 
 
-/*  == TO-DO SECTION ==
- - TODO:  description for a task (maybe since too much na i think idk)
- - TODO:  Scope feature/functionality. For the auto urgency.
- - TODO:  Completed tasks are hidden from retrieve mode by default (finished). (maybe/optional and very much still debating whether to add or not) toggle to show completed.
-*/
-
-
 // references to HTML elements
 const taskForm = document.getElementById("taskForm")
 const taskInput = document.getElementById("taskInput");
@@ -177,17 +170,17 @@ const editTask = function(task){
 taskForm.addEventListener("submit", (e) => {
     e.preventDefault();
 
-    const elements = e.target.elements;
+    const {taskName, urgency, difficulty, deadlineDate, deadlineTime, autoUrgencyToggle} = e.target.elements;
     const task = {
         id: Date.now(), // "unique" ID. Temporary, maybe
         dateCreated: Date.now(),
-        name: elements.taskName.value,
-        urgency: elements.urgency.value,
-        difficulty: elements.difficulty.value,
-        deadlineDate: elements.deadlineDate.value,
-        deadlineTime: elements.deadlineTime.value,
+        name: taskName.value,
+        urgency: urgency.value,
+        difficulty: difficulty.value,
+        deadlineDate: deadlineDate.value,
+        deadlineTime: deadlineTime.value,
         status: false, // completed or not
-        autoUrgency: elements.autoUrgencyToggle.checked,
+        autoUrgency: autoUrgencyToggle.checked,
         scope: `small`, // TODO:  Complete this functionality, (small, medium, big) if scope is big then dynamicUrgency changes
     }
 
