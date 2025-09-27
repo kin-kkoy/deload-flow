@@ -2,10 +2,8 @@
 
 
 /*  == TO-DO SECTION ==
- - TODO:  Mark complete, edit inline, delete.
-    - TODO:  Mark complete
-        - Remove from array and then save and then increment finishedTasks
- - TODO:  Completed tasks are hidden from retrieve mode by default (toggle to show completed, optional maybe).
+ - TODO:  edit inline
+ - TODO:  Completed tasks are hidden from retrieve mode by default (finished). (maybe/optional and very much still debating whether to add or not) toggle to show completed.
 */
 
 
@@ -18,6 +16,7 @@ const taskDisplay = document.getElementById("taskDisplay");
 const urgencyFilterBtn = document.getElementById("sortUrgency");
 const difficultyFilterBtn = document.getElementById("sortDifficulty");
 const streamlineMode = document.getElementById("streamlineMode");
+const taskStats = document.getElementById("taskStats");
 
 
 // variables
@@ -25,7 +24,6 @@ let tasks = []; // where tasks will be stored for now since I will add backend l
 let urgencyFilter = `all`; // by default show everything
 let difficultyFilter = `all`; // by default show everything
 let streamline = true; // focus mode or nah, by default yes
-let finishedTasks = 0; // could be stored in DB later. Somewhat of a decoration, just to feel good about the amount of tasks completed for the whole usage.
 const savedTasks = localStorage.getItem('tasks');
 if(savedTasks) tasks = JSON.parse(savedTasks);
 
@@ -34,11 +32,22 @@ if(savedTasks) tasks = JSON.parse(savedTasks);
 renderTasks(); // can be called since normal functions are hoisted
 
 // Helper functions
+// function updateTaskStats() {
+//     const totalCompleted = tasks.filter(task => task.status).length;
+//     taskStats.textContent = `You’ve completed ${totalCompleted} tasks in total.`;
+// }
+function updateCompletedTasks(){
+    // Note to future self: If you're wondering why I didn't use an external variable to store the amount of tasks completed, it's because we're not deleting or removing tasks that are completed so we can simply go through the array and count the amount tasks.status === true, furthermore it's much better since no extra hassle once mag migrate na to using DB.
+    const finishedTasks = tasks.filter(tasks => tasks.status).length;
+    taskStats.textContent = `You've completed ${finishedTasks} tasks since you first started!`;
+}
+
 function renderTasks() {
 let tasksToShow = tasks.filter(task => {
         const sameUrgency = (urgencyFilter === `all` || task.urgency === urgencyFilter);
         const sameDifficulty = (difficultyFilter === `all` || task.difficulty === difficultyFilter);
-        return sameUrgency && sameDifficulty;
+        const notCompleted = !task.status;
+        return notCompleted && sameUrgency && sameDifficulty;
     });
 
     console.log(`tasks to render: ${tasksToShow.length}`);
@@ -89,6 +98,7 @@ let tasksToShow = tasks.filter(task => {
     }).join(''); // one big string instead of looping twice just to display
 
     taskDisplay.innerHTML = tasksHTML;
+    updateCompletedTasks();
 }
 
 function saveTasks(){ localStorage.setItem('tasks', JSON.stringify(tasks)); }
@@ -133,21 +143,23 @@ taskDisplay.addEventListener('click', function(e) {
     const taskID = taskItem.dataset.id;
     const task = tasks.find(task => task.id == taskID); // not strict == since taskID is a string
 
-    if (target.matches('.expand-btn')) taskItem.classList.toggle('expanded');
-    else if(target.matches('.complete-checkbox')){
+    if (target.matches('.expand-btn')){ taskItem.classList.toggle('expanded'); return;}
+    if(target.matches('.complete-checkbox')){
         console.log(`completing task: ${task.name} #${taskID}`);
         task.status = !task.status;
-        saveTasks();
-        renderTasks();
     }else if(target.matches('.edit-btn')){
         // TODO:  edit functionality here
-        console.log(`editing task: ${taskItem.name} #${taskID}`);
+        console.log(`editing task: ${task.name} #${taskID}`);
         
     }else if(target.matches('.delete-btn')){
-        // TODO:  delete functionality here
-        console.log(`deleting task: ${taskItem.name} #${taskID}`);
-
+        // maybe: add a like warning when deleting a task
+        if (confirm(`Are you sure you want to delete the task: "${task.name}"?`)) {
+            tasks = tasks.filter(t => t.id != taskID);
+        }
     }
+
+    saveTasks();
+    renderTasks();
 });
 
 // filters
