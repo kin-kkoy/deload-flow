@@ -25,36 +25,15 @@ let tasks = []; // where tasks will be stored for now since I will add backend l
 let urgencyFilter = `all`; // by default show everything
 let difficultyFilter = `all`; // by default show everything
 let streamline = true; // focus mode or nah, by default yes
-const today = new Date().toDateString();
-const lastRefreshed = localStorage.getItem('lastRefreshed');
 const savedTasks = localStorage.getItem('tasks');
 if(savedTasks) tasks = JSON.parse(savedTasks);
 
 
 // Initialization's special area
-if (lastRefreshed !== today) refreshUrgencies();
 renderTasks(); // can be called since normal functions are hoisted
 
 
 // Helper functions / core logic
-function refreshUrgencies(){
-    localStorage.setItem('lastRefreshed', new Date().toDateString());
-    
-    let updated = false;
-
-    tasks.forEach(task => {
-        if(task.autoUrgency && !task.status){
-            const newUrgency = dynamicUrgency(task);
-            if(task.urgency !== newUrgency){ // meaning if the updated urgency is different then change
-                task.urgency = newUrgency;
-                updated = true;
-            }
-        }
-    });
-
-    if(updated) saveTasks();
-}
-
 function getDaysLeft(task) {
     if (!task.deadlineDate) return null; // no deadline
     const deadline = new Date(`${task.deadlineDate}T${task.deadlineTime || "23:59"}`);
@@ -71,7 +50,7 @@ function getDisplayUrgency(task) {
 
 function dynamicUrgency(task){
     const dayGap = getDaysLeft(task);
-    if (dayGap === null) return task.urgency; // fallback if no deadline
+    if (dayGap === null) return task.urgency; // fallback if no deadline tho kinda since that's the point of autoUrgency
 
     const {scope} = task;
     const urgentGap = 1, soonGap = 5; // 0-1 = urgent, 2-5 = soon, 5+ = later
