@@ -17,6 +17,7 @@ A simple but powerful task management application to help you deload your mind a
 ## To-Do
 TBD: To be decided
 
+- Add "?" information functionality to explain autoUrgency
 - Edit functionality = includes editing of urgency (if not autoUrgent) and deadline
 - Implement a "scope" property (small, medium, big) to influence the auto-urgency calculation; small = standard calculation, medium = slightly bigger time frame calculation, big = large time frame calculation.
 - (TBD) Add a description field for tasks to allow for more detailed notes.
