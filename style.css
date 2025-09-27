@@ -84,6 +84,141 @@ h1 {
   transition: border 0.2s ease, box-shadow 0.2s ease;
 }
 
+.input-with-buttons {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.input-with-buttons input[type="time"] {
+  flex-grow: 1;
+}
+
+.info-btn {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: none;
+  background-color: #d3d3d7;
+  color: #555;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen;
+  font-size: 0.7rem;
+  line-height: 1;
+  padding: 0;
+}
+
+/* Deadline date/time sizing adjustments */
+.deadline-field input[type="date"],
+.deadline-field input[type="time"] {
+  padding: 0.55rem 0.6rem; /* slightly smaller */
+  font-size: 0.9rem;
+  height: 40px; /* uniform height */
+}
+
+.deadline-field .input-with-buttons {
+  gap: 0.4rem;
+}
+
+.deadline-field .complete-checkbox {
+  width: 20px;
+  height: 20px;
+  margin-left: 0.2rem;
+}
+
+.deadline-field .info-btn {
+  width: 18px;
+  height: 18px;
+  font-size: 0.65rem;
+  background-color: #d3d3d7;
+  color: #555;
+  font-weight: 600;
+  transition: background-color .2s ease, color .2s ease;
+}
+
+.deadline-field .info-btn:hover {
+  background-color: #c2c2c5;
+  color: #222;
+}
+
+/* Make date & time groups narrower so they visually match */
+.deadline-field {
+  flex: 1;
+}
+
+/* Time input narrower for symmetry with Difficulty column visual balance */
+.time-field .time-input {
+  max-width: 100%; /* Allow it to fill the group */
+}
+
+.auto-urgency-group {
+  flex: 1;
+}
+
+.auto-urgency-group .input-with-buttons {
+  justify-content: flex-start; /* Align items to the start */
+  height: 40px; /* Match height of other inputs */
+}
+
+.auto-urgency-group .auto-urgency-checkbox {
+  width: 22px; /* Make checkbox bigger */
+  height: 22px;
+  cursor: pointer;
+  accent-color: #667eea;
+}
+
+.auto-urgency-group .info-btn {
+  margin-left: 0.25rem; /* Space between checkbox and button */
+}
+
+/* Remove old styles */
+.auto-urgency,
+.auto-urgency-label,
+.auto-urgency-checkbox {
+  /* Resetting old styles that are now handled differently or removed */
+  width: auto;
+  height: auto;
+  font-size: inherit;
+  font-weight: inherit;
+  color: inherit;
+  white-space: normal;
+  letter-spacing: normal;
+  padding: 0;
+  gap: 0;
+  display: inline-block;
+}
+
+.auto-urgency {
+  display: none; /* Hide the old container */
+}
+
+@media (max-width: 780px) {
+  .time-field .time-input { max-width: 100%; }
+}
+
+@media (max-width: 620px) {
+  .form-row {
+    flex-wrap: wrap; /* Allow items to wrap */
+  }
+  .deadline-field, .auto-urgency-group {
+    flex: 1 1 48%; /* Allow two items per row */
+  }
+  .time-field {
+    flex-grow: 1;
+  }
+  .deadline-field .input-with-buttons { flex-wrap: nowrap; }
+}
+
+@media (max-width: 480px) {
+  .deadline-field, .auto-urgency-group {
+    flex: 1 1 100%; /* Stack them on very small screens */
+  }
+}
+
 .form-group select:focus,
 .form-group input:focus {
   border-color: #74ebd5;
@@ -445,4 +580,12 @@ h1 {
   .task-actions-row {
     justify-content: center;
   }
+}
+
+.edit-input {
+  width: 100%;
+  font-size: 1.1rem;
+  padding: 0.2rem 0.4rem;
+  border: 1px solid #ccc;
+  border-radius: 4px;
 }

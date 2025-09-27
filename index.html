@@ -36,13 +36,20 @@
       </div>
 
       <div class="form-row">
-        <div class="form-group">
+        <div class="form-group deadline-field">
           <label for="deadlineDate">Deadline Date</label>
           <input type="date" id="deadlineDate" name="deadlineDate">
         </div>
-        <div class="form-group">
+        <div class="form-group deadline-field time-field">
           <label for="deadlineTime">Time</label>
-          <input type="time" id="deadlineTime" name="deadlineTime">
+          <input type="time" id="deadlineTime" name="deadlineTime" class="time-input">
+        </div>
+        <div class="form-group auto-urgency-group">
+          <label for="autoUrgencyToggle">Auto Urgency</label>
+          <div class="input-with-buttons">
+            <input type="checkbox" id="autoUrgencyToggle" class="auto-urgency-checkbox" title="Let the app derive urgency automatically">
+            <button type="button" class="info-btn" title="Auto Urgency helps set urgency based on deadline & time">?</button>
+          </div>
         </div>
       </div>
       
