@@ -12,6 +12,16 @@ const difficultyFilterBtn = document.getElementById("sortDifficulty");
 const streamlineMode = document.getElementById("streamlineMode");
 const taskStats = document.getElementById("taskStats");
 
+// Auth elements
+const authContainer = document.getElementById('authContainer');
+const appContainer = document.getElementById('appContainer');
+const loginFormEl = document.getElementById('loginForm');
+const registerFormEl = document.getElementById('registerForm');
+const loginErrorEl = document.getElementById('loginError');
+const registerErrorEl = document.getElementById('registerError');
+const logoutBtn = document.getElementById('logoutBtn');
+const authTabs = document.querySelectorAll('.auth-tab');
+
 
 // variables
 let tasks = []; // where tasks will be stored for now since I will add backend later
@@ -20,10 +30,44 @@ let difficultyFilter = `all`; // by default show everything
 let streamline = true; // focus mode or nah, by default yes
 const savedTasks = localStorage.getItem('tasks');
 if(savedTasks) tasks = JSON.parse(savedTasks);
+let token = localStorage.getItem('token');
+const apiBase = '/';
+
+
+// ==== API for backend connection ====
+function valToken(token){ //validate token
+    if(token){
+        localStorage.setItem('token', token);
+        // load tasks time
+        // showDashboard();
+    }else{
+        throw Error('Failed to authenticate...');
+    }
+}
+
+async function getTasks(){
+    const res = await fetch(`${apiBase}/`, {
+        headers: { 'Authorization': token}
+    });
+    const tasksData = await response.json();
+    tasks = todosData;
+    renderTasks();
+}
+
 
 
 // Initialization's special area
-renderTasks(); // can be called since normal functions are hoisted
+async function showDashboard(){
+    authContainer.classList.add('hidden');
+    appContainer.classList.remove('hidden');
+
+    await getTasks();
+}
+
+// getTasks(); // can be called since normal functions are hoisted
+
+// // Initialization's special area
+// renderTasks(); // can be called since normal functions are hoisted
 
 
 // Helper functions / core logic
@@ -246,3 +290,73 @@ streamlineMode.addEventListener('change', (e) => {
     renderTasks();
 });
 
+
+
+// Login / Register Tabs logic
+authTabs.forEach(tab => {
+    tab.addEventListener('click', () => {
+        authTabs.forEach(t => t.classList.remove('active'));
+        tab.classList.add('active');
+        if(tab.dataset.tab === 'login'){
+            registerFormEl.classList.add('hidden');
+            loginFormEl.classList.remove('hidden');
+        } else {
+            loginFormEl.classList.add('hidden');
+            registerFormEl.classList.remove('hidden');
+        }
+    });
+});
+
+
+
+// AUTHENTICATION (LOGIN & REGISTER)
+
+loginFormEl?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+
+    const email = loginFormEl.elements.email.value.trim();
+    const password = loginFormEl.elements.password.value;
+
+    try {
+        const response = await fetch(apiBase + 'auth/signin', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({username: email, password})
+        });
+
+        token = await response.json();
+        loginFormEl.textContent = ''; // set empty afterwards
+        valToken(token);
+        
+    } catch (error) {
+        loginErrorEl.textContent = error.message;
+    }
+});
+
+registerFormEl?.addEventListener('submit', async(e) => {
+    e.preventDefault();
+    
+    const name = registerFormEl.elements.name.value.trim();
+    const email = registerFormEl.elements.email.value.trim();
+    const password = registerFormEl.elements.password.value;
+    const confirmPass = registerFormEl.elements.confirm.value;
+
+    if (password !== confirmPass) {
+        registerErrorEl.textContent = "Passwords do not match";
+        return;
+    }
+
+    try {
+        const response = await fetch(apiBase + 'auth/signup', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({name, username: email, password})
+        });
+
+        token = await response.json();
+        valToken(token);
+    } catch (error) {
+        registerErrorEl.textContent = error.message
+    }
+    
+});
