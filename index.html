@@ -7,7 +7,65 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <div class="app-container">
+  <!-- Auth (Landing) Section -->
+  <div class="auth-container" id="authContainer">
+    <div class="auth-card">
+      <div class="brand">
+        <div class="brand-logo">🌀</div>
+        <div class="brand-text">
+          <h1>Task Deload</h1>
+          <p class="brand-sub">Lighten your load. Focus on what matters.</p>
+        </div>
+      </div>
+
+      <div class="auth-tabs" role="tablist">
+        <button class="auth-tab active" data-tab="login" aria-selected="true" aria-controls="loginForm">Login</button>
+        <button class="auth-tab" data-tab="register" aria-selected="false" aria-controls="registerForm">Register</button>
+      </div>
+
+      <div class="auth-forms">
+        <!-- Login Form -->
+        <form id="loginForm" class="auth-form" autocomplete="on">
+          <div class="form-field">
+            <label for="loginEmail">Email</label>
+            <input type="email" id="loginEmail" name="email" placeholder="you@example.com" required />
+          </div>
+          <div class="form-field">
+            <label for="loginPassword">Password</label>
+            <input type="password" id="loginPassword" name="password" placeholder="••••••••" required />
+          </div>
+          <button type="submit" class="primary-btn">Sign in</button>
+          <p class="auth-switch">No account? <a href="#" data-switch-to="register">Create one</a></p>
+          <p class="auth-error" id="loginError" role="alert" aria-live="polite"></p>
+        </form>
+
+        <!-- Register Form -->
+        <form id="registerForm" class="auth-form hidden" autocomplete="on">
+          <div class="form-field">
+            <label for="regName">Name</label>
+            <input type="text" id="regName" name="name" placeholder="Your name" required />
+          </div>
+          <div class="form-field">
+            <label for="regEmail">Email</label>
+            <input type="email" id="regEmail" name="email" placeholder="you@example.com" required />
+          </div>
+          <div class="form-field">
+            <label for="regPassword">Password</label>
+            <input type="password" id="regPassword" name="password" placeholder="Create a password" minlength="6" required />
+          </div>
+          <div class="form-field">
+            <label for="regConfirm">Confirm Password</label>
+            <input type="password" id="regConfirm" name="confirm" placeholder="Repeat password" minlength="6" required />
+          </div>
+          <button type="submit" class="primary-btn">Create account</button>
+          <p class="auth-switch">Already have an account? <a href="#" data-switch-to="login">Sign in</a></p>
+          <p class="auth-error" id="registerError" role="alert" aria-live="polite"></p>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <div class="app-container hidden" id="appContainer">
     <h1>Task Deload</h1>
 
     <!-- Input Section -->
@@ -91,6 +149,11 @@
             <option value="hard">Hard</option>
           </select>
         </div>
+      </div>
+
+      <!-- account -->
+      <div class="control-group">
+        <button id="logoutBtn" class="outline-btn" title="Sign out">Logout</button>
       </div>
     </div>
 
