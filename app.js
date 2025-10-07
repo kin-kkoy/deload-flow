@@ -1,8 +1,7 @@
-'use strict'
+"use strict";
 
-
-// references to HTML elements
-const taskForm = document.getElementById("taskForm")
+// ========== DOM refs ==========
+const taskForm = document.getElementById("taskForm");
 const taskInput = document.getElementById("taskInput");
 const addTaskBtn = document.getElementById("addTaskBtn");
 const retrieveTaskBtn = document.getElementById("retrieveTaskBtn");
@@ -13,185 +12,225 @@ const streamlineMode = document.getElementById("streamlineMode");
 const taskStats = document.getElementById("taskStats");
 
 // Auth elements
-const authContainer = document.getElementById('authContainer');
-const appContainer = document.getElementById('appContainer');
-const loginFormEl = document.getElementById('loginForm');
-const registerFormEl = document.getElementById('registerForm');
-const loginErrorEl = document.getElementById('loginError');
-const registerErrorEl = document.getElementById('registerError');
-const logoutBtn = document.getElementById('logoutBtn');
-const authTabs = document.querySelectorAll('.auth-tab');
+const authContainer = document.getElementById("authContainer");
+const appContainer = document.getElementById("appContainer");
+const loginFormEl = document.getElementById("loginForm");
+const registerFormEl = document.getElementById("registerForm");
+const loginErrorEl = document.getElementById("loginError");
+const registerErrorEl = document.getElementById("registerError");
+const logoutBtn = document.getElementById("logoutBtn");
+const authTabs = document.querySelectorAll(".auth-tab");
 
+// ========== Config & State ==========
+const STORAGE_KEYS = { tasks: "tasks", token: "token" };
+const API_BASE = window.__API_URL || "http://localhost:5001"; // change if your backend runs elsewhere
 
-// variables
-let tasks = []; // where tasks will be stored for now since I will add backend later
-let urgencyFilter = `all`; // by default show everything
-let difficultyFilter = `all`; // by default show everything
-let streamline = true; // focus mode or nah, by default yes
-const savedTasks = localStorage.getItem('tasks');
-if(savedTasks) tasks = JSON.parse(savedTasks);
-let token = localStorage.getItem('token');
-const apiBase = '/';
+const state = {
+    tasks: [],
+    filters: { urgency: "all", difficulty: "all" },
+    streamline: true,
+    token: localStorage.getItem(STORAGE_KEYS.token) || null,
+};
 
+// ========== Storage helpers ==========
+function saveTasks() {
+    localStorage.setItem(STORAGE_KEYS.tasks, JSON.stringify(state.tasks));
+}
 
-// ==== API for backend connection ====
-function valToken(token){ //validate token
-    if(token){
-        localStorage.setItem('token', token);
-        // load tasks time
-        // showDashboard();
-    }else{
-        throw Error('Failed to authenticate...');
+function loadTasks() {
+    const raw = localStorage.getItem(STORAGE_KEYS.tasks);
+    if (!raw) return;
+    try {
+        const parsed = JSON.parse(raw);
+        // ensure every task has an id
+        state.tasks = (Array.isArray(parsed) ? parsed : []).map((t) => ({
+            id: t.id || cryptoId(),
+            name: t.name || "Untitled",
+            urgency: t.urgency || "later",
+            difficulty: t.difficulty || "Easy",
+            deadlineDate: t.deadlineDate || "",
+            deadlineTime: t.deadlineTime || "",
+            completed: Boolean(t.completed),
+            autoUrgency: Boolean(t.autoUrgency),
+            scope: t.scope || "small",
+            dateCreated: t.dateCreated || new Date().toISOString(),
+        }));
+    } catch (_) {
+        state.tasks = [];
     }
 }
 
-async function getTasks(){
-    const res = await fetch(`${apiBase}/`, {
-        headers: { 'Authorization': token}
-    });
-    const tasksData = await response.json();
-    tasks = todosData;
-    renderTasks();
+function cryptoId() {
+    // Prefer UUID, fallback to timestamp-based id
+    return (window.crypto && crypto.randomUUID)
+        ? crypto.randomUUID()
+        : `${Date.now()}-${Math.floor(Math.random() * 1e6)}`;
 }
 
-
-
-// Initialization's special area
-async function showDashboard(){
-    authContainer.classList.add('hidden');
-    appContainer.classList.remove('hidden');
-
-    await getTasks();
+// ========== Auth / API client ==========
+function setToken(t, persist = true) {
+    state.token = t;
+    if (persist) localStorage.setItem(STORAGE_KEYS.token, t);
 }
 
-// getTasks(); // can be called since normal functions are hoisted
+function clearToken() {
+    state.token = null;
+    localStorage.removeItem(STORAGE_KEYS.token);
+}
 
-// // Initialization's special area
-// renderTasks(); // can be called since normal functions are hoisted
+async function safeJson(res) {
+    try { return await res.json(); } catch { return {}; }
+}
 
+async function apiFetch(path, options = {}) {
+    const headers = new Headers(options.headers || {});
+    if (!headers.has("Content-Type") && options.body) headers.set("Content-Type", "application/json");
+    if (state.token) headers.set("Authorization", `Bearer ${state.token}`);
 
-// Helper functions / core logic
+    const resp = await fetch(`${API_BASE}${path}`, { ...options, headers });
+    if (!resp.ok) {
+        const body = await safeJson(resp);
+        const msg = body.error || `Request failed (${resp.status})`;
+        throw new Error(msg);
+    }
+    return resp.json();
+}
+
+const api = {
+    // switch these to your real endpoints when backend is ready
+    async login(username, password) {
+        // e.g., /auth/signin or /auth/login
+        return apiFetch("/auth/signin", {
+            method: "POST",
+            body: JSON.stringify({ username, password }),
+        });
+    },
+    async register(name, username, password) {
+        // e.g., /auth/signup or /auth/register
+        return apiFetch("/auth/signup", {
+            method: "POST",
+            body: JSON.stringify({ name, username, password }),
+        });
+    },
+    async getTasks() {
+        // Update to your backend route, e.g., /todo
+        return apiFetch("/todo", { method: "GET" });
+    },
+};
+
+// ========== UI helpers ==========
 function getDaysLeft(task) {
     if (!task.deadlineDate) return null; // no deadline
-    const deadline = new Date(`${task.deadlineDate}T${task.deadlineTime || "23:59"}`);
-    if(isNaN(deadline)) return null;
-    return (deadline - Date.now()) / 86400000; // `86400000` = milliseconds in a day
-} 
-
-function getDisplayUrgency(task) {
-    if (task.autoUrgency && !task.status) {
-        return dynamicUrgency(task); // fresh calculation
-    }
-    return task.urgency; // fallback to manual urgency
+    const time = task.deadlineTime && task.deadlineTime.length > 0 ? task.deadlineTime : "23:59";
+    const deadline = new Date(`${task.deadlineDate}T${time}`);
+    if (isNaN(deadline)) return null;
+    return (deadline - Date.now()) / 86400000; // ms in a day
 }
 
-function dynamicUrgency(task){
+function dynamicUrgency(task) {
     const dayGap = getDaysLeft(task);
-    if (dayGap === null) return task.urgency; // fallback if no deadline tho kinda since that's the point of autoUrgency
+    if (dayGap === null) return task.urgency; // fallback if no deadline
 
-    const {scope} = task;
+    const scope = task.scope || "small";
     const urgentGap = 1, soonGap = 5; // 0-1 = urgent, 2-5 = soon, 5+ = later
 
     let multiplier = 1;
-    if(scope === `medium`) multiplier = 2;
-    if(scope === `big`) multiplier = 3;
+    if (scope === "medium") multiplier = 2;
+    if (scope === "big") multiplier = 3;
 
-    // these multiple returns feels wierd thanks to maam P lol.
-    if(dayGap < 0 || dayGap <= urgentGap * multiplier) return "urgent"; // first part = negative value meaning overdue. overdue = urgent
-    if(dayGap > (urgentGap * multiplier) && dayGap <= (soonGap * multiplier)) return `soon`;
-    return `later`;
+    if (dayGap < 0 || dayGap <= urgentGap * multiplier) return "urgent"; // overdue = urgent
+    if (dayGap > urgentGap * multiplier && dayGap <= soonGap * multiplier) return "soon";
+    return "later";
 }
 
-const saveTasks = () => localStorage.setItem('tasks', JSON.stringify(tasks));
-
-function saveEdit(taskID, title){
-    // if the title has whitespaces before/after then remove. Furthermore if the task's title/name is empty then do not allow
-    if(!title.trim()){
-        renderTasks(); // just show the tasks as if not editing/edited
-        return;
-    }
-
-    const task = tasks.find(task => task.id == taskID);
-    if(!task) return;
-
-    task.name = title;
-    saveTasks();
-    renderTasks();
+function getDisplayUrgency(task) {
+    if (task.autoUrgency && !task.completed) return dynamicUrgency(task);
+    return task.urgency;
 }
 
-function updateCompletedTasks(){
-    // Note to future self: If you're wondering why I didn't use an external variable to store the amount of tasks completed, it's because we're not deleting or removing tasks that are completed so we can simply go through the array and count the amount tasks.status === true, furthermore it's much better since no extra hassle once mag migrate na to using DB.
-    const finishedTasks = tasks.filter(tasks => tasks.status).length;
-    taskStats.textContent = `You've completed ${finishedTasks} tasks since you first started!`;
+function updateCompletedTasks() {
+    const finishedTasks = state.tasks.filter((t) => t.completed).length;
+    if (taskStats) taskStats.textContent = `You've completed ${finishedTasks} tasks since you first started!`;
 }
 
 function renderTasks() {
-    // checking if it's empty or not will be done after filtering since the filter dropdown already has a value by default
-    if (tasks.length === 0) {
+    if (!taskDisplay) return;
+
+    if (state.tasks.length === 0) {
         taskDisplay.innerHTML = `<p class="no-tasks-message">No tasks yet. Add one above!</p>`;
+        updateCompletedTasks();
         return;
     }
 
-    let tasksToShow = tasks.filter(task => {
-        // compute urgency for filtering
+    let tasksToShow = state.tasks.filter((task) => {
         const urgency = getDisplayUrgency(task);
-        const sameUrgency = (urgencyFilter === `all` || urgency === urgencyFilter);
-        const sameDifficulty = (difficultyFilter === `all` || task.difficulty === difficultyFilter);
-        const notCompleted = !task.status;
+        const sameUrgency = state.filters.urgency === "all" || urgency === state.filters.urgency;
+        const sameDifficulty = state.filters.difficulty === "all" || task.difficulty === state.filters.difficulty;
+        const notCompleted = !task.completed;
         return notCompleted && sameUrgency && sameDifficulty;
     });
 
-    console.log(`tasks to render: ${tasksToShow.length}`);
+    if (state.streamline && tasksToShow.length > 0) tasksToShow = tasksToShow.slice(0, 1);
 
-    if(streamline && tasksToShow.length > 0) tasksToShow = tasksToShow.slice(0, 1); // show only the first element
-    
-    const tasksHTML = tasksToShow.map(task => {
-        // >> I'll let AI do this part since it's the html stuff but beautified, my code was too plain and no design lol
+    const tasksHTML = tasksToShow
+        .map((task) => {
+            const urgency = getDisplayUrgency(task);
+            const daysLeft = getDaysLeft(task);
 
-        const urgency = getDisplayUrgency(task); // live urgency value
-        const daysLeft = getDaysLeft(task);
+            const deadlineString = task.deadlineDate || task.deadlineTime
+                ? `<strong>Due ${daysLeft >= 1 ? `in ${Math.floor(daysLeft)} days` : `Today`}!</strong>`
+                : `Take your time, there's no deadline for this.`;
 
-        const deadlineString = (task.deadlineDate || task.deadlineTime) 
-            ? `<strong>Due ${(daysLeft >= 1) ? `in ${Math.floor(daysLeft)} days` : `Today`}!</strong>` 
-            : `Take your time, there's no deadline for this.`;
-
-        return `
-            <div class="task-item ${task.status ? 'completed' : ''}" data-id="${task.id}">
-                <div class="task-header">
-                    <div class="complete-group">
-                        <input type="checkbox" class="complete-checkbox" id="complete-${task.id}" ${task.status ? 'checked' : ''}>
-                        <label for="complete-${task.id}" class="hidden-label">Finished</label>
+            const tid = String(task.id);
+            return `
+                <div class="task-item ${task.completed ? "completed" : ""}" data-id="${tid}">
+                    <div class="task-header">
+                        <div class="complete-group">
+                            <input type="checkbox" class="complete-checkbox" id="complete-${tid}" ${task.completed ? "checked" : ""}>
+                            <label for="complete-${tid}" class="hidden-label">Finished</label>
+                        </div>
+                        <div class="task-summary">
+                            <span class="task-name">${task.name}</span>
+                            <div class="task-categories">
+                                <span class="category urgency-${urgency}">${urgency}</span>
+                                <span class="category difficulty-${task.difficulty}">${task.difficulty}</span>
+                            </div>
+                        </div>
+                        <button class="expand-btn">❯</button>
                     </div>
-                    <div class="task-summary">
-                        <span class="task-name">${task.name}</span>
-                        <div class="task-categories">
-                            <span class="category urgency-${urgency}">${urgency}</span>
-                            <span class="category difficulty-${task.difficulty}">${task.difficulty}</span>
+                    <div class="task-details">
+                        <p>${deadlineString}</p>
+                        <div class="task-actions">
+                            <div class="action-buttons">
+                                <button class="task-action-btn edit-btn" title="Edit Task">✏️</button>
+                                <button class="task-action-btn delete-btn" title="Delete Task">🗑️</button>
+                            </div>
                         </div>
                     </div>
-                    <button class="expand-btn">❯</button>
                 </div>
-                <div class="task-details">
-                    <p>${deadlineString}</p>
-                    <div class="task-actions">
-                        <div class="action-buttons">
-                            <button class="task-action-btn edit-btn" title="Edit Task">✏️</button>
-                            <button class="task-action-btn delete-btn" title="Delete Task">🗑️</button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        `;
-    }).join(''); // one big string instead of looping twice just to display
+            `;
+        })
+        .join("");
 
     taskDisplay.innerHTML = tasksHTML;
     updateCompletedTasks();
 }
 
-const editTask = function(task){
-    // Changing the task name to an input field
-    const nameElem = task.querySelector(".task-name");
-    const taskID = task.dataset.id;
+function saveEdit(taskID, title) {
+    if (!title.trim()) {
+        renderTasks();
+        return;
+    }
+    const task = state.tasks.find((t) => String(t.id) === String(taskID));
+    if (!task) return;
+    task.name = title;
+    saveTasks();
+    renderTasks();
+}
+
+function editTask(taskElem) {
+    const nameElem = taskElem.querySelector(".task-name");
+    const taskID = taskElem.dataset.id;
     const currentNameText = nameElem.textContent;
     const input = document.createElement("input");
     input.type = "text";
@@ -199,164 +238,192 @@ const editTask = function(task){
     input.classList.add("edit-input");
     nameElem.textContent = "";
     nameElem.appendChild(input);
-    input.focus(); // set focus to the title so user can type at title immediately
+    input.focus();
 
-    // Event listeners which are used when user is done editing
-    input.addEventListener("blur", () => saveEdit(taskID, input.value)); // `blur` is like when the element has lost focus na via clicking somewhere else or change tab or the like
+    input.addEventListener("blur", () => saveEdit(taskID, input.value));
     input.addEventListener("keydown", (e) => {
-        if(e.key === "Enter") saveEdit(taskID, input.value);
-        if(e.key === "Escape") saveEdit(taskID, currentNameText); // as is or revert back.
+        if (e.key === "Enter") saveEdit(taskID, input.value);
+        if (e.key === "Escape") saveEdit(taskID, currentNameText);
     });
-};
+}
 
-// Event listeners and the logic parts
-// task contents submission
-taskForm.addEventListener("submit", (e) => {
+// ========== Event wiring ==========
+taskForm?.addEventListener("submit", (e) => {
     e.preventDefault();
 
-    const {taskName, urgency, difficulty, deadlineDate, deadlineTime, autoUrgencyToggle} = e.target.elements;
-    const task = {
-        id: Date.now(), // "unique" ID. Temporary, maybe
-        dateCreated: Date.now(),
-        name: taskName.value,
-        urgency: urgency.value,
-        difficulty: difficulty.value,
-        deadlineDate: deadlineDate.value,
-        deadlineTime: deadlineTime.value,
-        status: false, // completed or not
-        autoUrgency: autoUrgencyToggle.checked,
-        scope: `small`, // TODO:  Complete this functionality, (small, medium, big) if scope is big then dynamicUrgency changes
-    }
+    const { taskName, urgency, difficulty, deadlineDate, deadlineTime, autoUrgencyToggle } = e.target.elements;
+    const newTask = {
+        id: cryptoId(),
+        dateCreated: new Date().toISOString(),
+        name: (taskName?.value || "").trim(),
+        urgency: urgency?.value || "later",
+        difficulty: difficulty?.value || "Easy",
+        deadlineDate: deadlineDate?.value || "",
+        deadlineTime: deadlineTime?.value || "",
+        completed: false,
+        autoUrgency: Boolean(autoUrgencyToggle?.checked),
+        scope: "small",
+    };
 
-    if(!task.name || !task.urgency || !task.difficulty){ // i think deadline isn't really that needed
-        alert(`Please input fields on name, urgency, and difficulty`);
-        taskInput.value = "";
+    if (!newTask.name || !newTask.urgency || !newTask.difficulty) {
+        alert("Please input fields on name, urgency, and difficulty");
+        if (taskInput) taskInput.value = "";
         return;
     }
-    
-    tasks.push(task);
-    saveTasks(); // === check this later in the future, might be kinds inefficient 
+
+    state.tasks.push(newTask);
+    saveTasks();
     renderTasks();
     e.target.reset();
 });
 
-retrieveTaskBtn.addEventListener("click", () => renderTasks());
+retrieveTaskBtn?.addEventListener("click", () => renderTasks());
 
-// event listener to expand task once the arrow button is pressed
-taskDisplay.addEventListener('click', function(e) {
+taskDisplay?.addEventListener("click", function (e) {
     const target = e.target;
-    const taskItem = target.closest('.task-item');
-    if(!taskItem) return;
+    const taskItem = target.closest(".task-item");
+    if (!taskItem) return;
 
-    // temporary solution to stop rendering/saving when not changing a task's property/ies
-    let taskChange = false;
-
+    let changed = false;
     const taskID = taskItem.dataset.id;
-    const task = tasks.find(task => task.id == taskID); // not strict `==` since taskID is a string
+    const task = state.tasks.find((t) => String(t.id) === String(taskID));
+    if (!task) return;
 
-    // Made AI do the "expanding" since I'm not that familiar with that yet and it's more of a design feature.
-    if (target.matches('.expand-btn')) taskItem.classList.toggle('expanded')
-    else if(target.matches('.complete-checkbox')){
-        taskChange = true;
-        task.status = !task.status;
-    }else if(target.matches('.edit-btn')) editTask(taskItem);
-    else if(target.matches('.delete-btn')){
-        // this is the confirmation prompt thing, neat feature
+    if (target.matches(".expand-btn")) {
+        taskItem.classList.toggle("expanded");
+    } else if (target.matches(".complete-checkbox")) {
+        changed = true;
+        task.completed = !task.completed;
+    } else if (target.matches(".edit-btn")) {
+        editTask(taskItem);
+    } else if (target.matches(".delete-btn")) {
         if (confirm(`Are you sure you want to delete the task: "${task.name}"?`)) {
-            taskChange = true;
-            tasks = tasks.filter(t => t.id != taskID);
+            changed = true;
+            state.tasks = state.tasks.filter((t) => String(t.id) !== String(taskID));
         }
     }
 
-    if(taskChange){
-        taskChange = false;
+    if (changed) {
         saveTasks();
         renderTasks();
     }
 });
 
-// filters
-urgencyFilterBtn.addEventListener('change', (e) => {
-    urgencyFilter = e.target.value;
-    renderTasks();
-});
-difficultyFilterBtn.addEventListener('change', (e) => {
-    difficultyFilter = e.target.value
+urgencyFilterBtn?.addEventListener("change", (e) => {
+    state.filters.urgency = e.target.value;
     renderTasks();
 });
 
-streamlineMode.addEventListener('change', (e) => {
-    streamline = e.target.checked;
+difficultyFilterBtn?.addEventListener("change", (e) => {
+    state.filters.difficulty = e.target.value;
     renderTasks();
 });
 
+streamlineMode?.addEventListener("change", (e) => {
+    state.streamline = e.target.checked;
+    renderTasks();
+});
 
-
-// Login / Register Tabs logic
-authTabs.forEach(tab => {
-    tab.addEventListener('click', () => {
-        authTabs.forEach(t => t.classList.remove('active'));
-        tab.classList.add('active');
-        if(tab.dataset.tab === 'login'){
-            registerFormEl.classList.add('hidden');
-            loginFormEl.classList.remove('hidden');
+// Tabs
+authTabs.forEach((tab) => {
+    tab.addEventListener("click", () => {
+        authTabs.forEach((t) => t.classList.remove("active"));
+        tab.classList.add("active");
+        if (tab.dataset.tab === "login") {
+            registerFormEl?.classList.add("hidden");
+            loginFormEl?.classList.remove("hidden");
         } else {
-            loginFormEl.classList.add('hidden');
-            registerFormEl.classList.remove('hidden');
+            loginFormEl?.classList.add("hidden");
+            registerFormEl?.classList.remove("hidden");
         }
     });
 });
 
+// ========== Auth (JWT) ==========
+async function showDashboard() {
+    authContainer?.classList.add("hidden");
+    appContainer?.classList.remove("hidden");
 
+    // Try backend tasks first; fallback silently to local tasks
+    try {
+        const data = await api.getTasks();
+        // Expecting { data: Task[] } from backend; adjust if your API returns differently
+        const list = Array.isArray(data?.data) ? data.data : Array.isArray(data) ? data : [];
+        // normalize and replace local tasks view (not overwriting localStorage automatically)
+        state.tasks = list.map((t) => ({
+            id: t.id ?? cryptoId(),
+            name: t.name ?? "Untitled",
+            urgency: t.urgency ?? "later",
+            difficulty: t.difficulty ?? "Easy",
+            deadlineDate: t.deadlineDate ?? "",
+            deadlineTime: t.deadlineTime ?? "",
+            completed: Boolean(t.completed ?? t.completed),
+            autoUrgency: Boolean(t.autoUrgency),
+            scope: t.scope ?? "small",
+            dateCreated: t.dateCreated ?? new Date().toISOString(),
+        }));
+    } catch (_) {
+        // keep local tasks if backend fetch fails
+    }
 
-// AUTHENTICATION (LOGIN & REGISTER)
+    renderTasks();
+}
 
-loginFormEl?.addEventListener('submit', async (e) => {
+function showAuth() {
+    appContainer?.classList.add("hidden");
+    authContainer?.classList.remove("hidden");
+}
+
+loginFormEl?.addEventListener("submit", async (e) => {
     e.preventDefault();
-
+    loginErrorEl.textContent = "";
     const email = loginFormEl.elements.email.value.trim();
     const password = loginFormEl.elements.password.value;
-
     try {
-        const response = await fetch(apiBase + 'auth/signin', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({username: email, password})
-        });
-
-        token = await response.json();
-        loginFormEl.textContent = ''; // set empty afterwards
-        valToken(token);
-        
-    } catch (error) {
-        loginErrorEl.textContent = error.message;
+        const data = await api.login(email, password);
+        if (!data?.token) throw new Error("No token returned");
+        setToken(data.token, true);
+        await showDashboard();
+    } catch (err) {
+        loginErrorEl.textContent = err.message || "Login failed";
     }
 });
 
-registerFormEl?.addEventListener('submit', async(e) => {
+registerFormEl?.addEventListener("submit", async (e) => {
     e.preventDefault();
-    
+    registerErrorEl.textContent = "";
     const name = registerFormEl.elements.name.value.trim();
     const email = registerFormEl.elements.email.value.trim();
     const password = registerFormEl.elements.password.value;
     const confirmPass = registerFormEl.elements.confirm.value;
-
     if (password !== confirmPass) {
         registerErrorEl.textContent = "Passwords do not match";
         return;
     }
-
     try {
-        const response = await fetch(apiBase + 'auth/signup', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({name, username: email, password})
-        });
-
-        token = await response.json();
-        valToken(token);
-    } catch (error) {
-        registerErrorEl.textContent = error.message
+        const data = await api.register(name, email, password);
+        if (!data?.token) throw new Error("No token returned");
+        setToken(data.token, true);
+        await showDashboard();
+    } catch (err) {
+        registerErrorEl.textContent = err.message || "Registration failed";
     }
-    
 });
+
+logoutBtn?.addEventListener("click", () => {
+    clearToken();
+    showAuth();
+});
+
+// ========== Init ==========
+(function init() {
+    loadTasks();
+    renderTasks();
+
+    // If there's a token, go straight to dashboard
+    if (state.token) {
+        showDashboard();
+    } else {
+        showAuth();
+    }
+})();
