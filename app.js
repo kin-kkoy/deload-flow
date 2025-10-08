@@ -46,6 +46,7 @@ function loadTasks() {
         state.tasks = (Array.isArray(parsed) ? parsed : []).map((t) => ({
             id: t.id || cryptoId(),
             name: t.name || "Untitled",
+            description: t.description || "No description provided",
             urgency: t.urgency || "later",
             difficulty: t.difficulty || "Easy",
             deadlineDate: t.deadlineDate || "",
@@ -115,6 +116,23 @@ const api = {
     async getTasks() {
         // Update to your backend route, e.g., /todo
         return apiFetch("/todo", { method: "GET" });
+    },
+    async addTask(task) {
+        return apiFetch("/todo", {
+            method: "POST",
+            body: JSON.stringify(task),
+        });
+    },
+    async updateTask(id, updates) {
+        return apiFetch(`/todo/${id}`, {
+            method: "PUT", 
+            body: JSON.stringify(updates),
+        });
+    },
+    async deleteTask(id) {
+        return apiFetch(`/todo/${id}`, {
+            method: "DELETE",
+        });
     },
 };
 
@@ -216,6 +234,29 @@ function renderTasks() {
     updateCompletedTasks();
 }
 
+async function refreshTasksFromBackend() {
+    try {
+        const data = await api.getTasks();
+        const list = Array.isArray(data?.data) ? data.data : Array.isArray(data) ? data : [];
+        state.tasks = list.map((t) => ({
+            id: t.id ?? cryptoId(),
+            name: t.name ?? "Untitled",
+            description: t.description ?? "No description provided",
+            urgency: t.urgency ?? "later",
+            difficulty: t.difficulty ?? "Easy",
+            deadlineDate: t.deadlineDate ?? "",
+            deadlineTime: t.deadlineTime ?? "",
+            completed: Boolean(t.completed ?? t.status),
+            autoUrgency: Boolean(t.autoUrgency),
+            scope: t.scope ?? "small",
+            dateCreated: t.dateCreated ?? new Date().toISOString(),
+        }));
+        renderTasks();
+    } catch (error) {
+        console.error("Failed to refresh tasks:", error);
+    }
+}
+
 function saveEdit(taskID, title) {
     if (!title.trim()) {
         renderTasks();
@@ -223,9 +264,25 @@ function saveEdit(taskID, title) {
     }
     const task = state.tasks.find((t) => String(t.id) === String(taskID));
     if (!task) return;
-    task.name = title;
-    saveTasks();
-    renderTasks();
+    
+    const updateTask = async () => {
+        try {
+            if (state.token) {
+                await api.updateTask(taskID, { name: title });
+                await refreshTasksFromBackend();
+            } else {
+                task.name = title;
+                saveTasks();
+                renderTasks();
+            }
+        } catch (error) {
+            console.error("Failed to update task:", error);
+            alert("Failed to update task. Please try again.");
+            renderTasks(); // revert to original state
+        }
+    };
+    
+    updateTask();
 }
 
 function editTask(taskElem) {
@@ -248,19 +305,17 @@ function editTask(taskElem) {
 }
 
 // ========== Event wiring ==========
-taskForm?.addEventListener("submit", (e) => {
+taskForm?.addEventListener("submit", async (e) => {
     e.preventDefault();
 
-    const { taskName, urgency, difficulty, deadlineDate, deadlineTime, autoUrgencyToggle } = e.target.elements;
+    const { taskName, taskDescription, urgency, difficulty, deadlineDate, deadlineTime, autoUrgencyToggle } = e.target.elements;
     const newTask = {
-        id: cryptoId(),
-        dateCreated: new Date().toISOString(),
         name: (taskName?.value || "").trim(),
+        description: (taskDescription?.value || "").trim() || "No description provided",
         urgency: urgency?.value || "later",
         difficulty: difficulty?.value || "Easy",
         deadlineDate: deadlineDate?.value || "",
         deadlineTime: deadlineTime?.value || "",
-        completed: false,
         autoUrgency: Boolean(autoUrgencyToggle?.checked),
         scope: "small",
     };
@@ -271,41 +326,71 @@ taskForm?.addEventListener("submit", (e) => {
         return;
     }
 
-    state.tasks.push(newTask);
-    saveTasks();
-    renderTasks();
-    e.target.reset();
+    try {
+        if (state.token) {
+            await api.addTask(newTask);
+            await refreshTasksFromBackend();
+        } else {
+            // Fallback to local storage
+            const localTask = {
+                ...newTask,
+                id: cryptoId(),
+                dateCreated: new Date().toISOString(),
+                completed: false,
+            };
+            state.tasks.push(localTask);
+            saveTasks();
+            renderTasks();
+        }
+        e.target.reset();
+    } catch (error) {
+        console.error("Failed to add task:", error);
+        alert("Failed to add task. Please try again.");
+    }
 });
 
 retrieveTaskBtn?.addEventListener("click", () => renderTasks());
 
-taskDisplay?.addEventListener("click", function (e) {
+taskDisplay?.addEventListener("click", async function (e) {
     const target = e.target;
     const taskItem = target.closest(".task-item");
     if (!taskItem) return;
 
-    let changed = false;
     const taskID = taskItem.dataset.id;
     const task = state.tasks.find((t) => String(t.id) === String(taskID));
     if (!task) return;
 
-    if (target.matches(".expand-btn")) {
-        taskItem.classList.toggle("expanded");
-    } else if (target.matches(".complete-checkbox")) {
-        changed = true;
-        task.completed = !task.completed;
-    } else if (target.matches(".edit-btn")) {
-        editTask(taskItem);
-    } else if (target.matches(".delete-btn")) {
-        if (confirm(`Are you sure you want to delete the task: "${task.name}"?`)) {
-            changed = true;
-            state.tasks = state.tasks.filter((t) => String(t.id) !== String(taskID));
+    try {
+        if (target.matches(".expand-btn")) {
+            taskItem.classList.toggle("expanded");
+        } else if (target.matches(".complete-checkbox")) {
+            const newStatus = !task.completed;
+            
+            if (state.token) {
+                await api.updateTask(taskID, { completed: newStatus });
+                await refreshTasksFromBackend();
+            } else {
+                task.completed = newStatus;
+                saveTasks();
+                renderTasks();
+            }
+        } else if (target.matches(".edit-btn")) {
+            editTask(taskItem);
+        } else if (target.matches(".delete-btn")) {
+            if (confirm(`Are you sure you want to delete the task: "${task.name}"?`)) {
+                if (state.token) {
+                    await api.deleteTask(taskID);
+                    await refreshTasksFromBackend();
+                } else {
+                    state.tasks = state.tasks.filter((t) => String(t.id) !== String(taskID));
+                    saveTasks();
+                    renderTasks();
+                }
+            }
         }
-    }
-
-    if (changed) {
-        saveTasks();
-        renderTasks();
+    } catch (error) {
+        console.error("Task operation failed:", error);
+        alert("Operation failed. Please try again.");
     }
 });
 
@@ -346,27 +431,11 @@ async function showDashboard() {
 
     // Try backend tasks first; fallback silently to local tasks
     try {
-        const data = await api.getTasks();
-        // Expecting { data: Task[] } from backend; adjust if your API returns differently
-        const list = Array.isArray(data?.data) ? data.data : Array.isArray(data) ? data : [];
-        // normalize and replace local tasks view (not overwriting localStorage automatically)
-        state.tasks = list.map((t) => ({
-            id: t.id ?? cryptoId(),
-            name: t.name ?? "Untitled",
-            urgency: t.urgency ?? "later",
-            difficulty: t.difficulty ?? "Easy",
-            deadlineDate: t.deadlineDate ?? "",
-            deadlineTime: t.deadlineTime ?? "",
-            completed: Boolean(t.completed ?? t.completed),
-            autoUrgency: Boolean(t.autoUrgency),
-            scope: t.scope ?? "small",
-            dateCreated: t.dateCreated ?? new Date().toISOString(),
-        }));
+        await refreshTasksFromBackend();
     } catch (_) {
         // keep local tasks if backend fetch fails
+        renderTasks();
     }
-
-    renderTasks();
 }
 
 function showAuth() {
