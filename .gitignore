@@ -1,6 +1,7 @@
-// for the fking sake of just keeping the tracked files the same
-.env
 node_modules/
 package-lock.json
 
 gitignore
+
+# Yes I'm hiding this
+README.md
